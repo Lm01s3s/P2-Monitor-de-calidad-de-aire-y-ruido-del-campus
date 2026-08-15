@@ -1,7 +1,7 @@
 # P2 — Monitor de calidad de aire y ruido del campus
 
 ## E02 — Daniel Quintero
-**Simulación Wokwi:** [Wokwi](https://wokwi.com/projects/472438716081998849)
+**Simulación Wokwi:** [E 02-GT1](https://wokwi.com/projects/472438716081998849)
 
 ### Integrantes
 **Dylan Arias — Pablo Lazo — Lucas Maldonado — Sergio Mella — Gabriel Castro**
@@ -13,9 +13,9 @@
 > Para corregir el error sistematico del sensor imperfecto, se obtuvieron 2 lecturas crudas y aplicamos la formula de correcion.
 > 
 > **Referencia (R) — Lectura medida (M)**
-> R1 = 7 — M1 = 9.38
-> R2 = 33 — M2 = 36.66
-> **R3 = 19 — M3 = 21.97 (medido) , 19.02 (calibrado) , 18.98 (filtrado)**
+>   R1 = 7 — M1 = 9.38
+>   R2 = 33 — M2 = 36.66
+>   **R3 = 19 — M3 = 21.97 (medido) , 19.02 (calibrado) , 18.98 (filtrado)**
 >
 > **Datos calculados y aplicados en el codigo**
 > - Ganancia (m) = 0.953
