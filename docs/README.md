@@ -1,1 +1,1 @@
-En esta carpeta se encuentra el informe solicitado en formato PDF.
+En esta carpeta se encontraran los informes solicitados.
