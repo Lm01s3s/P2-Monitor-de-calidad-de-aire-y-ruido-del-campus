@@ -54,7 +54,7 @@
 | **Estímulo a 50 cm** | 15 | 13 | 6.5 | 1 – 22 | +10 cuentas ($3.2\times\sigma$) |
 | **Estímulo a 100 cm** | 15 | 11 | 4.1 | 3 – 16 | +8 cuentas ($2.7\times\sigma$) |
 
-![Caracterización de Ruido KY-038](ruido_p2.png)
+![Caracterización de Ruido KY-038](docs/ruido_p2.png)
 
 ### Criterio de Verificación y Parámetros para GT3
 * **Criterio de éxito:** El estímulo a 50 cm supera en **$3.2$ veces la dispersión de reposo** del recinto, cumpliendo con la separación mínima exigida para discriminar eventos sonoros sobre el ruido ambiente[cite: 1, 4].
