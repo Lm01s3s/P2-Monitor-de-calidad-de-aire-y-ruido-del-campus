@@ -34,3 +34,31 @@
 >
 > **JUSTIFICACIÓN**: Combinado con nuestros 5 segundos de muestreo, un N=5 no da una inercia de 25 segundos. Al hacer esto, picks que se podrían dar como un grito, etc, se verían eliminados, pero aumentos que regulares, como simplemente más gente conversando, no un incremento situacional sino uno estable se ve reflejado, eliminando estos datos atípicos.
 > 
+
+## 4. Verificación física del sensor KY-038 (Familia A — GT2 Ítem 1)
+
+### Declaración de Privacidad
+> **Privacidad:** Este nodo mide exclusivamente niveles de amplitud por ventana (cuentas pico a pico). No graba, no almacena ni transmite audio ni conversaciones en ningún momento, conservando solo un valor escalar representativo por cada intervalo.
+
+### Protocolo y Condiciones del Ensayo
+* **Pin de lectura:** GPIO 32 (ADC1 del ESP32 con atenuación de 11 dB).
+* **Ventana de integración:** 50 ms (muestreo continuo sin retardos, informe cada 500 ms).
+* **Orientación del micrófono:** Frontal directo hacia la fuente sonora.
+* **Estímulo sonoro:** Tono continuo puro generado por teléfono con frecuencia y volumen constantes.
+
+### Resultados Obtenidos (Amplitud Pico a Pico)
+
+| Condición | Muestras | Media (cuentas) | Dispersión ($\sigma$) | Rango (mín-máx) | Separación sobre reposo |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Silencio (Reposo)** | 15 | 2 | 3.2 | 0 – 9 | — |
+| **Estímulo a 50 cm** | 15 | 13 | 6.5 | 1 – 22 | +10 cuentas ($3.2\times\sigma$) |
+| **Estímulo a 100 cm** | 15 | 11 | 4.1 | 3 – 16 | +8 cuentas ($2.7\times\sigma$) |
+
+![Caracterización de Ruido KY-038](ruido_p2.png)
+
+### Criterio de Verificación y Parámetros para GT3
+* **Criterio de éxito:** El estímulo a 50 cm supera en **$3.2$ veces la dispersión de reposo** del recinto, cumpliendo con la separación mínima exigida para discriminar eventos sonoros sobre el ruido ambiente[cite: 1, 4].
+* **Unidades:** Los datos se reportan estrictamente en **cuentas pico a pico ($V_{pp}$)** y no en decibeles ($dB$), dado que no se contó con un sonómetro patrón calibrado en mesa[cite: 1, 4].
+* **Constante propuesta para el firmware (GT3):**
+  ```cpp
+  const int UMBRAL_RUIDO_PP = 18; // Reposo (2) + 5 * dispersión (3.2)
