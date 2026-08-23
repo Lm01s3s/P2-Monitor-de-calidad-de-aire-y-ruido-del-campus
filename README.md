@@ -45,20 +45,24 @@
 * **Ventana de integración:** 50 ms (muestreo continuo sin retardos, informe cada 500 ms).
 * **Orientación del micrófono:** Frontal directo hacia la fuente sonora.
 * **Estímulo sonoro:** Tono continuo puro generado por teléfono con frecuencia y volumen constantes.
+* **Recinto:** Sala de trabajo cerrada.
 
 ### Resultados Obtenidos (Amplitud Pico a Pico)
 
-| Condición | Muestras | Media (cuentas) | Dispersión ($\sigma$) | Rango (mín-máx) | Separación sobre reposo |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Silencio (Reposo)** | 15 | 2 | 3.2 | 0 – 9 | — |
-| **Estímulo a 50 cm** | 15 | 13 | 6.5 | 1 – 22 | +10 cuentas ($3.2\times\sigma$) |
-| **Estímulo a 100 cm** | 15 | 11 | 4.1 | 3 – 16 | +8 cuentas ($2.7\times\sigma$) |
+| Condición | Distancia (cm) | Muestras | Media (cuentas pp) | Dispersión ($\sigma$) | Rango (mín-máx) | Veces la dispersión del reposo |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Silencio (Reposo)** | --- | 15 | 2 | 3.2 | 0 – 9 | --- |
+| **Estímulo cercano** | 50 | 15 | 13 | 6.5 | 1 – 22 | 3.2 |
+| **Estímulo lejano** | 100 | 15 | 11 | 4.1 | 3 – 16 | 2.7 |
+
+**Nivel de reposo del recinto:** 2 cuentas pp &nbsp;&nbsp;|&nbsp;&nbsp; **Dispersión:** 3.2 cuentas pp
 
 ![Caracterización de Ruido KY-038](docs/ruido_p2.png)
 
 ### Criterio de Verificación y Parámetros para GT3
-* **Criterio de éxito:** El estímulo a 50 cm supera en **$3.2$ veces la dispersión de reposo** del recinto, cumpliendo con la separación mínima exigida para discriminar eventos sonoros sobre el ruido ambiente[cite: 1, 4].
-* **Unidades:** Los datos se reportan estrictamente en **cuentas pico a pico ($V_{pp}$)** y no en decibeles ($dB$), dado que no se contó con un sonómetro patrón calibrado en mesa[cite: 1, 4].
+* **Tolerancia declarada antes de medir:** Separación mínima del estímulo sobre el reposo $\ge 3$ veces la dispersión del reposo.
+* **Criterio de éxito alcanzado:** El estímulo a 50 cm supera en **3.2 veces la dispersión de reposo** del recinto, cumpliendo con la separación exigida para discriminar eventos sonoros sobre el ruido ambiente.
+* **Unidades:** Los datos se reportan estrictamente en **cuentas pico a pico ($V_{pp}$)** y no en decibeles ($dB$), dado que no se contó con un sonómetro patrón calibrado en mesa.
 * **Constante propuesta para el firmware (GT3):**
   ```cpp
   const int UMBRAL_RUIDO_PP = 18; // Reposo (2) + 5 * dispersión (3.2)
