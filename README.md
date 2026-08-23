@@ -4,7 +4,11 @@
 **Simulación Wokwi:** [E 02-GT1](https://wokwi.com/projects/472438716081998849)
 
 ### Integrantes
-**Dylan Arias — Pablo Lazo — Lucas Maldonado — Sergio Mella — Gabriel Castro**
+**Dylan Arias — Pablo Lazo — Lucas Maldonado — Sergio Mella — Gabriel Castro**  
+  
+  
+## FSM del proyecto
+> ![Arquitectura FSM](/src/fsm_diagram/fsm.drawio.png)
 
 ## 1. Lazo de Muestreo
 > Se implementó un muestro que no bloquea utilizando milis(). Para la simulación se modeló el comportamiento del sensor de ruido (Ky-308), configurando PERIODO_MS= 5000.
@@ -39,30 +43,30 @@
 
 ### Declaración de Privacidad
 > **Privacidad:** Este nodo mide exclusivamente niveles de amplitud por ventana (cuentas pico a pico). No graba, no almacena ni transmite audio ni conversaciones en ningún momento, conservando solo un valor escalar representativo por cada intervalo.
-
-### Protocolo y Condiciones del Ensayo
-* **Pin de lectura:** GPIO 32 (ADC1 del ESP32 con atenuación de 11 dB).
-* **Ventana de integración:** 50 ms (muestreo continuo sin retardos, informe cada 500 ms).
-* **Orientación del micrófono:** Frontal directo hacia la fuente sonora.
-* **Estímulo sonoro:** Tono continuo puro generado por teléfono con frecuencia y volumen constantes.
-* **Recinto:** Sala de trabajo cerrada.
-
-### Resultados Obtenidos (Amplitud Pico a Pico)
-
-| Condición | Distancia (cm) | Muestras | Media (cuentas pp) | Dispersión ($\sigma$) | Rango (mín-máx) | Veces la dispersión del reposo |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Silencio (Reposo)** | --- | 15 | 2 | 3.2 | 0 – 9 | --- |
-| **Estímulo cercano** | 50 | 15 | 13 | 6.5 | 1 – 22 | 3.2 |
-| **Estímulo lejano** | 100 | 15 | 11 | 4.1 | 3 – 16 | 2.7 |
-
-**Nivel de reposo del recinto:** 2 cuentas pp &nbsp;&nbsp;|&nbsp;&nbsp; **Dispersión:** 3.2 cuentas pp
-
-![Caracterización de Ruido KY-038](docs/ruido_p2.png)
-
-### Criterio de Verificación y Parámetros para GT3
-* **Tolerancia declarada antes de medir:** Separación mínima del estímulo sobre el reposo $\ge 3$ veces la dispersión del reposo.
-* **Criterio de éxito alcanzado:** El estímulo a 50 cm supera en **3.2 veces la dispersión de reposo** del recinto, cumpliendo con la separación exigida para discriminar eventos sonoros sobre el ruido ambiente.
-* **Unidades:** Los datos se reportan estrictamente en **cuentas pico a pico ($V_{pp}$)** y no en decibeles ($dB$), dado que no se contó con un sonómetro patrón calibrado en mesa.
-* **Constante propuesta para el firmware (GT3):**
-  ```cpp
-  const int UMBRAL_RUIDO_PP = 18; // Reposo (2) + 5 * dispersión (3.2)
+>
+> ### Protocolo y Condiciones del Ensayo
+> * **Pin de lectura:** GPIO 32 (ADC1 del ESP32 con atenuación de 11 dB).
+> * **Ventana de integración:** 50 ms (muestreo continuo sin retardos, informe cada 500 ms).
+> * **Orientación del micrófono:** Frontal directo hacia la fuente sonora.
+> * **Estímulo sonoro:** Tono continuo puro generado por teléfono con frecuencia y volumen constantes.
+> * **Recinto:** Sala de trabajo cerrada.
+> 
+> ### Resultados Obtenidos (Amplitud Pico a Pico)
+> 
+> | Condición | Distancia (cm) | Muestras | Media (cuentas pp) | Dispersión ($\sigma$) | Rango (mín-máx) | Veces la dispersión del reposo |
+> | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+> | **Silencio (Reposo)** | --- | 15 | 2 | 3.2 | 0 – 9 | --- |
+> | **Estímulo cercano** | 50 | 15 | 13 | 6.5 | 1 – 22 | 3.2 |
+> | **Estímulo lejano** | 100 | 15 | 11 | 4.1 | 3 – 16 | 2.7 |
+> 
+> **Nivel de reposo del recinto:** 2 cuentas pp &nbsp;&nbsp;|&nbsp;&nbsp; **Dispersión:** 3.2 cuentas pp
+> 
+> ![Caracterización de Ruido KY-038](src/KY-038/ruido_p2.png)
+> 
+> ### Criterio de Verificación y Parámetros para GT3
+> * **Tolerancia declarada antes de medir:** Separación mínima del estímulo sobre el reposo $\ge 3$ veces la dispersión del reposo.
+> * **Criterio de éxito alcanzado:** El estímulo a 50 cm supera en **3.2 veces la dispersión de reposo** del recinto, cumpliendo con la separación exigida para discriminar eventos sonoros sobre el ruido ambiente.
+> * **Unidades:** Los datos se reportan estrictamente en **cuentas pico a pico ($V_{pp}$)** y no en decibeles ($dB$), dado que no se contó con un sonómetro patrón calibrado en mesa.
+> * **Constante propuesta para el firmware (GT3):**  
+>   ```cpp
+>   const int UMBRAL_RUIDO_PP = 18; // Reposo (2) + 5 * dispersión (3.2)
