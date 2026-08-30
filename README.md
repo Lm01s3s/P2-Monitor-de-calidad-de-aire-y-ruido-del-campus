@@ -8,7 +8,7 @@
   
   
 ## FSM del proyecto
-> ![Arquitectura FSM](/src/fsm_diagram/fsm.drawio.png)
+> ![Arquitectura FSM](/src/fsm_diagram/fsm_control.png)
 
 ## 1. Lazo de Muestreo
 > Se implementó un muestro que no bloquea utilizando milis(). Para la simulación se modeló el comportamiento del sensor de ruido (Ky-308), configurando PERIODO_MS= 5000.
