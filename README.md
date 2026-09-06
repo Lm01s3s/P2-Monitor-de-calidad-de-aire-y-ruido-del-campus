@@ -1,7 +1,9 @@
 # P2 — Monitor de calidad de aire y ruido del campus
 
 ## E02 — Daniel Quintero
-**Simulación Wokwi:** [E 02-GT1](https://wokwi.com/projects/472438716081998849)
+**Simulación Wokwi del proyecto:** [P2 - E02](https://wokwi.com/projects/474383041083067393)
+
+*Wokwi de la GT1:* [E 02-GT1](https://wokwi.com/projects/472438716081998849)
 
 ### Integrantes
 **Dylan Arias — Pablo Lazo — Lucas Maldonado — Sergio Mella — Gabriel Castro**  
