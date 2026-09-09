@@ -40,7 +40,7 @@ const float B_CAL_RUIDO = 0.0f;
 
 // umbral para alertas
 const float UMBRAL_PELIGRO_GAS = 400.0f;
-const float UMBRAL_PELIGRO_RUIDO = 80.0f;
+const float UMBRAL_PELIGRO_RUIDO = 1000.0f;
 // umbral para alertas
 
 // tipos de filtrado
@@ -48,7 +48,7 @@ const uint8_t N_FILTRO_GAS = 10;
 const bool USAR_MEDIANA_GAS = false;
 
 const uint8_t N_FILTRO_RUIDO = 15;
-const bool USAR_MEDIANA_RUIDO = true;
+const bool USAR_MEDIANA_RUIDO = false;
 // tipos de filtrado
 
 // tiempos en ms
@@ -87,6 +87,9 @@ uint8_t validas_gas = 0;
 float ventana_ruido[16];
 uint8_t idx_ruido = 0;
 uint8_t validas_ruido = 0;
+
+int minimo_ruido = 4095;
+int maximo_ruido = 0;
 // valores utiles en calculos y punteros
 
 // valores para el boton de emergencia
@@ -154,6 +157,7 @@ void actualizarSensores()
 {
     uint32_t ahora = millis();
 
+    // lectura de MQ135
     if (ahora - t_previo_mq135 >= INTERVALO_MQ135)
     {
         t_previo_mq135 = ahora;
@@ -174,15 +178,19 @@ void actualizarSensores()
 
         airePeligro = (valor_final_gas >= UMBRAL_PELIGRO_GAS);
     }
+    // lectura de MQ135
+
+    // lectura de KY038
+    int lectura_ruido = analogRead(PIN_KY038);
+
+    if (lectura_ruido < minimo_ruido) minimo_ruido = lectura_ruido;
+    if (lectura_ruido > maximo_ruido) maximo_ruido = lectura_ruido;
 
     if (ahora - t_previo_ky038 >= INTERVALO_KY038)
     {
         t_previo_ky038 = ahora;
 
-        analogRead(PIN_KY038);
-        analogRead(PIN_KY038);
-
-        float crudo = (float)analogRead(PIN_KY038);
+        float crudo = (float)(maximo_ruido - minimo_ruido);
         float calibrado = aplicar_calibracion(crudo, M_CAL_RUIDO, B_CAL_RUIDO);
 
         ventana_ruido[idx_ruido] = calibrado;
@@ -194,7 +202,11 @@ void actualizarSensores()
         valor_final_ruido = USAR_MEDIANA_RUIDO ? mediana(ventana_ruido, validas_ruido) : media_movil(ventana_ruido, validas_ruido);
 
         ruidoPeligro = (valor_final_ruido >= UMBRAL_PELIGRO_RUIDO);
+
+        minimo_ruido = 4095;
+        maximo_ruido = 0;
     }
+    // lectura de KY038
 }
 
 void actualizarPantalla()
@@ -209,7 +221,7 @@ void actualizarPantalla()
         t_previo_oled = millis();
         display.clearDisplay();
         display.setCursor(0, 0);
-        display.println("PANTALLA DE DATOS");
+        display.println("PANTALLA DE DATOS - P02 - E02");
 
         display.print("Estado: ");
         switch (estadoActual)
@@ -248,12 +260,26 @@ void actualizarPantalla()
         }
 
         display.print("Gas: ");
-        display.print(valor_final_gas);
-        display.println(" PPM");
+        if (estadoActual == WARM_UP)
+        {
+            display.println("Calibrando...");
+        }
+        else
+        {
+            display.print(valor_final_gas);
+            display.println(" PPM");
+        }
 
         display.print("Ruido: ");
-        display.print(valor_final_ruido);
-        display.println(" dB");
+        if (estadoActual == WARM_UP)
+        {
+            display.println("Calibrando...");
+        }
+        else
+        {
+            display.print(valor_final_ruido);
+            display.println(" ADC");
+        }
 
         display.display();
     }
