@@ -1,0 +1,6 @@
+FROM telegraf:latest
+
+# Copiamos la configuración personalizada al contenedor
+COPY telegraf.conf /etc/telegraf/telegraf.conf
+
+CMD ["telegraf", "--config", "/etc/telegraf/telegraf.conf"]
