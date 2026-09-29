@@ -7,6 +7,16 @@
 
 ### Integrantes
 **Dylan Arias — Pablo Lazo — Lucas Maldonado — Sergio Mella — Gabriel Castro**  
+
+## Tabla de Tópicos MQTT
+
+Ruta base del nodo: `curso/E02/P02/nodo1`
+
+| Tópico | Dirección | QoS | Retained | Descripción del Payload |
+| :--- | :--- | :---: | :---: | :--- |
+| `curso/E02/P02/nodo1` | Publicación | 1 | Sí | JSON con métricas de sensores (Gas en PPM y Ruido en ADC), estado de la FSM (entero 0-5), flags de alerta booleanos (0/1) y fuerza de señal WiFi (`rssi_dbm`). |
+| `curso/E02/P02/nodo1/estado` | Publicación | 1 | Sí | String en texto plano: `"online"` al conectar exitosamente, `"offline"` despachado automáticamente por el broker vía LWT (Last Will and Testament) si el nodo se desconecta abruptamente. |
+| `curso/E02/P02/nodo1/cmd` | Suscripción | 1 | No | JSON de entrada para recibir comandos de control remoto desde el backend o interfaz de usuario. |
   
   
 ## FSM del proyecto
