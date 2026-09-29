@@ -3,9 +3,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h> 
 #include <WiFi.h>
-#include <WiFiClientSecure.h> // OBLIGATORIO para conectarse a HiveMQ Cloud (TLS)
-#include <PubSubClient.h> 
-#include <ArduinoJson.h>  
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include "config.h"
 
 // Pines
 const uint8_t PIN_MQ135 = 32;
@@ -16,14 +16,14 @@ const uint8_t PIN_LED_AMARILLO = 19;
 const uint8_t PIN_BUZZER = 25;
 const uint8_t PIN_BOTON = 26; 
 
-// Credenciales WiFi y MQTT Cloud
-const char *WIFI_SSID = "Xiaomi 14T";
-const char *WIFI_PASS = "Dylan-Xiaomi14T";
+// --- VARIABLES DE RED Y TOPICOS ---
+const uint32_t ESPERA_INICIAL   = 2000;
+const uint32_t ESPERA_MAXIMA    = 30000;
+uint32_t esperaReconexion = ESPERA_INICIAL;
+uint32_t tWiFi = 0, tReconexion = 0;
 
-const char *MQTT_SERVER = "a3022985d40540ce9d4b29fe5a528c35.s1.eu.hivemq.cloud"; 
-const uint16_t MQTT_PORT = 8883; // Puerto seguro 8883
-const char *MQTT_USER = "pablolz";
-const char *MQTT_PASS = "pablolz123";
+String clientId, topicDatos, topicEstado, topicCmd;
+// ----------------------------------
 
 // Calibración y Umbrales
 const float M_CAL_GAS = 1.0f;
@@ -40,15 +40,14 @@ const uint32_t INTERVALO_MQ135 = 1000;
 const uint32_t INTERVALO_KY038 = 1000; 
 const uint32_t INTERVALO_OLED = 500;   
 const uint32_t INTERVALO_MQTT = 15000; 
-const uint32_t INTERVALO_RECON = 7500; 
 const uint32_t TIEMPO_WARMUP = 30000;  
+const uint32_t REINTENTO_WIFI_MS = 15000;
 
 // Variables de tiempo
 uint32_t t_previo_mq135 = 0;
 uint32_t t_previo_ky038 = 0;
 uint32_t t_previo_oled = 0;
 uint32_t t_previo_mqtt = 0;
-uint32_t t_previo_recon = 0;
 uint32_t t_inicio = 0;
 
 // Variables de estado
@@ -67,9 +66,9 @@ uint8_t validas_gas = 0;
 uint32_t t_ultimo_cambio_boton = 0;
 const uint32_t ANTIREBOTE_MS = 2000;
 
-// Instancias de Hardware y Red
+// Instancias de Hardware y Red (WiFiClient normal, sin TLS)
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
-WiFiClientSecure espClient; 
+WiFiClient espClient; 
 PubSubClient client(espClient);
 
 enum EstadoFSM : uint8_t { WARM_UP, STABLE, AIR_ALERT, NOISE_ALERT, EMERGENCY, ERROR_SYS };
@@ -120,14 +119,8 @@ void actualizarSensores() {
             nivel_pseudo_analogo = (lecturas_ruido * 100) / total_lecturas;
         }
 
-        // Mapeo directo de porcentaje (0-100%) a rango ADC (0-4095)
         valor_final_ruido = (float)map(nivel_pseudo_analogo, 0, 100, 0, 4095);
         ruidoPeligro = (valor_final_ruido >= UMBRAL_PELIGRO_RUIDO);
-
-        Serial.print("Ruido_Filtrado:");
-        Serial.print(valor_final_ruido);
-        Serial.print(" , Porcentaje:");
-        Serial.println(nivel_pseudo_analogo); 
 
         // Reseteo de contador
         total_lecturas = 0;
@@ -135,35 +128,66 @@ void actualizarSensores() {
     }
 }
 
-void manejarConexion() {
-    if (millis() - t_previo_recon >= INTERVALO_RECON) {
-        t_previo_recon = millis();
-        if (WiFi.status() != WL_CONNECTED) {
-            WiFi.begin(WIFI_SSID, WIFI_PASS);
-        } else if (!client.connected()) {
-            String clientId = "ESP32_EdgeNode_" + String(random(0xffff), HEX);
-            client.connect(clientId.c_str(), MQTT_USER, MQTT_PASS);
-        }
+// Recepción de comandos MQTT
+void recibirComando(char* topic, byte* payload, unsigned int largo) {
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload, largo);
+    if (error) {
+        Serial.printf("[cmd] JSON invalido en %s: %s\n", topic, error.c_str());
+        return;
     }
-    if (client.connected()) {
-        client.loop();
+    Serial.printf("[cmd] recibido en %s\n", topic);
+}
+
+// WiFi sin bloquear
+void mantenerWiFi() {
+    if (WiFi.status() == WL_CONNECTED) return;
+    uint32_t ahora = millis();
+    if (ahora - tWiFi < REINTENTO_WIFI_MS) return;
+    tWiFi = ahora;
+    Serial.println("[wifi] sin red, reintentando...");
+    WiFi.reconnect();
+}
+
+// MQTT sin bloquear y con testamento
+void mantenerMQTT() {
+    if (client.connected()) return;
+    if (WiFi.status() != WL_CONNECTED) return;
+    uint32_t ahora = millis();
+    if (ahora - tReconexion < esperaReconexion) return;
+    tReconexion = ahora;
+
+    Serial.printf("[mqtt] conectando como %s ... ", clientId.c_str());
+    if (client.connect(clientId.c_str(), MQTT_USER, MQTT_PASS, topicEstado.c_str(), 1, true, "offline")) {
+        Serial.println("OK");
+        client.publish(topicEstado.c_str(), "online", true);   // estado retenido
+        client.subscribe(topicCmd.c_str(), 1);                 // resuscribir
+        esperaReconexion = ESPERA_INICIAL;
+    } else {
+        Serial.printf("FALLO rc=%d, reintento en %u s\n", client.state(), (unsigned)(esperaReconexion / 1000));
+        esperaReconexion = (esperaReconexion * 2 > ESPERA_MAXIMA) ? ESPERA_MAXIMA : esperaReconexion * 2;
     }
 }
 
-void publicarJSON() {
-    if (client.connected() && (millis() - t_previo_mqtt >= INTERVALO_MQTT)) {
-        t_previo_mqtt = millis();
-        JsonDocument doc;
+// Publicación de JSON
+void publicarDatos() {
+    if (!client.connected()) return;
 
-        doc["estado_fsm"] = estadoActual;
-        doc["mq135_aire"] = valor_final_gas;
-        doc["ky038_sonido"] = valor_final_ruido;
-        doc["alerta_aire"] = airePeligro;
-        doc["alerta_ruido"] = ruidoPeligro;
+    JsonDocument doc;
+    doc["estado_fsm"] = estadoActual;
+    doc["mq135_aire"] = roundf(valor_final_gas * 10.0f) / 10.0f;
+    doc["ky038_sonido"] = roundf(valor_final_ruido * 10.0f) / 10.0f;
+    doc["alerta_aire"] = airePeligro ? 1 : 0;
+    doc["alerta_ruido"] = ruidoPeligro ? 1 : 0;
+    doc["rssi_dbm"] = WiFi.RSSI();
 
-        char buffer[256];
-        serializeJson(doc, buffer);
-        client.publish("sensores/fdd", buffer);
+    char payload[256];
+    size_t n = serializeJson(doc, payload, sizeof(payload));
+
+    if (client.publish(topicDatos.c_str(), (const uint8_t*)payload, n, true)) {
+        Serial.printf("[pub] %s -> %s\n", topicDatos.c_str(), payload);
+    } else {
+        Serial.println("[pub] ERROR publish() (buffer o sesion)");
     }
 }
 
@@ -318,32 +342,51 @@ void setup() {
     pinMode(PIN_BUZZER, OUTPUT);
     pinMode(PIN_BOTON, INPUT_PULLUP);
 
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-    {
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println("Fallo al iniciar SSD1306");
         estadoActual = ERROR_SYS;
-    }
-    else
-    {
+    } else {
         display.setTextSize(1);
         display.setTextColor(SSD1306_WHITE); 
     }
 
+    // Tópicos dinámicos como en el código antiguo
+    clientId    = String(MQTT_USER) + "-" + NODO;
+    topicDatos  = String("curso/") + MQTT_USER + "/" + PROYECTO + "/" + NODO;
+    topicEstado = topicDatos + "/estado";
+    topicCmd    = topicDatos + "/cmd";
+    Serial.printf("[id] Client ID: %s\n[id] Datos   : %s\n", clientId.c_str(), topicDatos.c_str());
+
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true); 
+    WiFi.setSleep(false);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
     
-    // Configuración SSL/TLS para HiveMQ Cloud
-    espClient.setInsecure(); 
+    tWiFi = millis();
+
     client.setServer(MQTT_SERVER, MQTT_PORT);
+    client.setCallback(recibirComando);
     client.setBufferSize(512);
+    client.setKeepAlive(15);
+    client.setSocketTimeout(3);
 
     t_inicio = millis();
 }
 
 void loop() {
+    mantenerWiFi();
+    mantenerMQTT();
+    client.loop();
+    
     botonEmergencia();
     actualizarSensores();
-    manejarConexion();
-    publicarJSON();
+    
+    uint32_t ahora = millis();
+    if (ahora - t_previo_mqtt >= INTERVALO_MQTT) {
+        t_previo_mqtt = ahora;
+        publicarDatos();
+    }
+    
     actualizarPantalla();
     procesarFSM();
 }

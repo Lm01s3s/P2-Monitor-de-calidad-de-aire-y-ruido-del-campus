@@ -1,0 +1,8 @@
+{
+  "estado_fsm": 1,
+  "mq135_aire": 125.4,
+  "ky038_sonido": 450.2,
+  "alerta_aire": 0,
+  "alerta_ruido": 0,
+  "rssi_dbm": -68
+}
