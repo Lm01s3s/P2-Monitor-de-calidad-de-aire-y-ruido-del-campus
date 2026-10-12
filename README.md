@@ -22,6 +22,20 @@ Ruta base del nodo: `curso/E02/P02/nodo1`
 ## FSM del proyecto
 > ![Arquitectura FSM](/src/fsm_diagram/fsm_control.png)
 
+## Ingesta y Persistencia de Datos
+* **Ruta de ingesta:** ESP32 → Mosquitto → Telegraf → InfluxDB.
+* **Almacenamiento:** Organización `curso-iot`, Bucket `mediciones`, Measurement `mediciones`
+* **Tags (Identificadores de serie):**
+  * `equipo`: "E02"
+  * `proyecto`: "P02"
+  * `nodo`: "nodo1"
+* **Fields (Variables del JSON):**
+  * `gas` (PPM)
+  * `ruido` (cuentas pp)
+  * `fsm` (estado de 0 a 5)
+  * `alertas` (boolean 0/1)
+  * `rssi_dbm` (fuerza de señal)
+
 ## 1. Lazo de Muestreo
 > Se implementó un muestro que no bloquea utilizando milis(). Para la simulación se modeló el comportamiento del sensor de ruido (Ky-308), configurando PERIODO_MS= 5000.
 > Justificación: Según nuestro plan, pueden haber picks de sonido (golpes, gritos, etc), que al muestrear en un intervalo pequeño de periodo de tiempo podemos captar estos sin perder data.
