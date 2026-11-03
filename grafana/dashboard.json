@@ -1,0 +1,130 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "schemaVersion": 38,
+  "tags": ["E02", "P2"],
+  "time": { "from": "now-24h", "to": "now" },
+  "timezone": "browser",
+  "title": "[E02] Monitor de calidad de aire y ruido del campus",
+  "version": 1,
+  "weekStart": "",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Calidad del aire - ultimas 24 h",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none",
+          "displayName": "Cuentas ADC",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 400 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb" },
+          "query": "from(bucket: \"mediciones\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mediciones\")\n  |> filter(fn: (r) => r.equipo == \"E02\" and\n                       r.proyecto == \"P2\" and\n                       r.nodo == \"nodo1\")\n  |> filter(fn: (r) => r._field == \"mq135_aire\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Valor actual del aire",
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 400 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb" },
+          "query": "from(bucket: \"mediciones\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mediciones\")\n  |> filter(fn: (r) => r.equipo == \"E02\" and\n                       r.proyecto == \"P2\" and\n                       r.nodo == \"nodo1\")\n  |> filter(fn: (r) => r._field == \"mq135_aire\")"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Nivel de ruido promedio por hora",
+      "description": "Promedio horario del nivel de ruido. Responde la pregunta analitica del charter sobre en que franjas horarias se concentran los peaks, cosa que la serie de tiempo cruda no deja ver.",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "axisPlacement": "auto"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 2500 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "showValue": "auto",
+        "stacking": "none",
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb" },
+          "query": "from(bucket: \"mediciones\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mediciones\")\n  |> filter(fn: (r) => r.equipo == \"E02\" and\n                       r.proyecto == \"P2\" and\n                       r.nodo == \"nodo1\")\n  |> filter(fn: (r) => r._field == \"ky038_sonido\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,1 +1,0 @@
-Aqui se encontraran diversos archivos relacionados directamente con el ESP32
