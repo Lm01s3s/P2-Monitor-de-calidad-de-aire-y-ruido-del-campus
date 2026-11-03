@@ -8,15 +8,15 @@
 #include "config.h"
 
 // Pines
-const uint8_t PIN_MQ135 = 32;
+const uint8_t PIN_MQ2 = 32;
 const uint8_t PIN_KY038 = 34;
 const uint8_t PIN_LED_ROJO = 17;
 const uint8_t PIN_LED_AZUL = 18;
-const uint8_t PIN_LED_AMARILLO = 19;
+const uint8_t PIN_LED_VERDE = 19;
 const uint8_t PIN_BUZZER = 25;
 const uint8_t PIN_BOTON = 26;
 
-// --- VARIABLES DE RED Y TOPICOS ---
+// Variables de red y topicos
 const uint32_t ESPERA_INICIAL = 2000;
 const uint32_t ESPERA_MAXIMA = 30000;
 uint32_t esperaReconexion = ESPERA_INICIAL;
@@ -25,7 +25,6 @@ uint32_t t_previo_wifi = 0;
 const uint32_t INTERVALO_RECONEXION_WIFI = 10000;
 
 String clientId, topicDatos, topicEstado, topicCmd;
-// ----------------------------------
 
 // Calibración y Umbrales
 const float M_CAL_GAS = 1.0f;
@@ -37,14 +36,14 @@ const float B_CAL_RUIDO = 0.0f;
 const float UMBRAL_PELIGRO_RUIDO = 2500.0f;
 
 // Tiempos en ms
-const uint32_t INTERVALO_MQ135 = 1000;
+const uint32_t INTERVALO_MQ2 = 1000;
 const uint32_t INTERVALO_KY038 = 1000;
 const uint32_t INTERVALO_OLED = 500;
 const uint32_t INTERVALO_MQTT = 15000;
 const uint32_t TIEMPO_WARMUP = 30000;
 
 // Variables de tiempo
-uint32_t t_previo_mq135 = 0;
+uint32_t t_previo_mq2 = 0;
 uint32_t t_previo_ky038 = 0;
 uint32_t t_previo_oled = 0;
 uint32_t t_previo_mqtt = 0;
@@ -72,7 +71,14 @@ Adafruit_SH1106G display(128, 64, &Wire, -1);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-enum EstadoFSM : uint8_t { WARM_UP, STABLE, AIR_ALERT, NOISE_ALERT, EMERGENCY, ERROR_SYS };
+// Variables para control remoto por MQTT (GT6)
+enum CmdRemoto { CMD_NINGUNO, CMD_ON, CMD_OFF };
+CmdRemoto cmdRemoto = CMD_NINGUNO;
+uint32_t t_actuacion = 0;
+const uint32_t T_MAX_MS = 60000; // 60s maximo de actuacion por seguridad
+
+// FSM del sistema
+enum EstadoFSM : uint8_t { WARM_UP, STABLE, AIR_ALERT, NOISE_ALERT, EMERGENCY, ERROR_SYS, REMOTE_STATE };
 EstadoFSM estadoActual = WARM_UP;
 
 // Funciones Matemáticas
@@ -90,11 +96,11 @@ float media_movil(float arreglo[], uint8_t validas) {
 void actualizarSensores() {
     uint32_t ahora = millis();
 
-    // 1. LECTURA GAS (MQ135)
-    if (ahora - t_previo_mq135 >= INTERVALO_MQ135) {
-        t_previo_mq135 = ahora;
-        analogRead(PIN_MQ135); // Lectura de sacrificio para estabilizar ADC
-        float crudo = (float)analogRead(PIN_MQ135);
+    // 1. LECTURA GAS MQ2
+    if (ahora - t_previo_mq2 >= INTERVALO_MQ2) {
+        t_previo_mq2 = ahora;
+        analogRead(PIN_MQ2); // Lectura de sacrificio para estabilizar ADC
+        float crudo = (float)analogRead(PIN_MQ2);
 
         ventana_gas[idx_gas] = aplicar_calibracion(crudo, M_CAL_GAS, B_CAL_GAS);
         idx_gas = (idx_gas + 1) % N_FILTRO_GAS;
@@ -104,7 +110,7 @@ void actualizarSensores() {
         airePeligro = (valor_final_gas >= UMBRAL_PELIGRO_GAS);
     }
 
-    // 2. LECTURA DE KY038 (Amplitud Pico a Pico Analógica)
+    // 2. LECTURA DE KY038
     if (ahora - t_previo_ky038 >= INTERVALO_KY038) {
         t_previo_ky038 = ahora;
 
@@ -135,18 +141,24 @@ void actualizarSensores() {
 // Recepción de comandos MQTT
 void recibirComando(char* topic, byte* payload, unsigned int largo) {
     JsonDocument doc;
+    // Deserializa el JSON inyectado desde Node-RED
     DeserializationError error = deserializeJson(doc, payload, largo);
     if (error) {
         Serial.printf("[cmd] JSON invalido en %s: %s\n", topic, error.c_str());
         return;
     }
-    Serial.printf("[cmd] recibido en %s\n", topic);
+
+    // Extraemos la orden exacta de la clave "cmd"
+    const char* cmd = doc["cmd"];
+    
+    // Asignamos el estado a la variable global comparando el string
+    if (strcmp(cmd, "ON") == 0) cmdRemoto = CMD_ON;
+    else if (strcmp(cmd, "OFF") == 0) cmdRemoto = CMD_OFF;
+
+    Serial.printf("[cmd] recibido en %s: %s\n", topic, cmd);
 }
 
-// --- CORREGIDO ---
-// Reconexión WiFi sin bloquear y SIN cortar una asociacion en curso.
-// El WiFi.disconnect() anterior mataba el intento de conexion antes de
-// que alcanzara a completarse, por eso nunca llegaba a conectar.
+// Mantener el wifi sin bloquear
 void mantenerWiFi() {
     if (WiFi.status() == WL_CONNECTED) return;
 
@@ -183,10 +195,11 @@ void mantenerMQTT() {
 // Publicación de JSON
 void publicarDatos() {
     if (!client.connected()) return;
+    if (estadoActual == WARM_UP) return;
 
     JsonDocument doc;
     doc["estado_fsm"] = estadoActual;
-    doc["mq135_aire"] = roundf(valor_final_gas * 10.0f) / 10.0f;
+    doc["mq2_aire"] = roundf(valor_final_gas * 10.0f) / 10.0f;
     doc["ky038_sonido"] = roundf(valor_final_ruido * 10.0f) / 10.0f;
     doc["alerta_aire"] = airePeligro ? 1 : 0;
     doc["alerta_ruido"] = ruidoPeligro ? 1 : 0;
@@ -234,6 +247,7 @@ void actualizarPantalla() {
             case STABLE: display.println("STABLE"); break;
             case AIR_ALERT: display.println("AIR ALERT"); break;
             case NOISE_ALERT: display.println("NOISE ALERT"); break;
+            case REMOTE_STATE: display.println("REMOTE STATE"); break;
             case EMERGENCY: display.println("EMERGENCY"); break;
         }
 
@@ -262,7 +276,10 @@ void actualizarPantalla() {
 
         display.print("MQTT: ");
         if (!client.connected()) {
-            display.println("OFF");
+            display.println("OFF"); return;
+        }
+        if (estadoActual == WARM_UP) {
+            display.println("Espera...");
         } else {
             uint32_t tp_envio = millis() - t_previo_mqtt;
             if (tp_envio < 2000) {
@@ -288,17 +305,21 @@ void procesarFSM() {
         case STABLE:
             digitalWrite(PIN_LED_ROJO, LOW);
             digitalWrite(PIN_LED_AZUL, LOW);
-            digitalWrite(PIN_LED_AMARILLO, LOW);
+            digitalWrite(PIN_LED_VERDE, LOW);
             digitalWrite(PIN_BUZZER, LOW);
             if (airePeligro && ruidoPeligro) estadoActual = EMERGENCY;
             else if (airePeligro) estadoActual = AIR_ALERT;
             else if (ruidoPeligro) estadoActual = NOISE_ALERT;
+            else if (cmdRemoto == CMD_ON) {
+                estadoActual = REMOTE_STATE;
+                t_actuacion = millis();
+            }
             break;
 
         case AIR_ALERT:
             digitalWrite(PIN_LED_ROJO, LOW);
             digitalWrite(PIN_LED_AZUL, HIGH);
-            digitalWrite(PIN_LED_AMARILLO, LOW);
+            digitalWrite(PIN_LED_VERDE, LOW);
             digitalWrite(PIN_BUZZER, LOW);
             if (!airePeligro) estadoActual = STABLE;
             else if (ruidoPeligro) estadoActual = EMERGENCY;
@@ -307,7 +328,7 @@ void procesarFSM() {
         case NOISE_ALERT:
             digitalWrite(PIN_LED_ROJO, LOW);
             digitalWrite(PIN_LED_AZUL, LOW);
-            digitalWrite(PIN_LED_AMARILLO, HIGH);
+            digitalWrite(PIN_LED_VERDE, HIGH);
             digitalWrite(PIN_BUZZER, LOW);
             if (!ruidoPeligro) estadoActual = STABLE;
             else if (airePeligro) estadoActual = EMERGENCY;
@@ -316,7 +337,7 @@ void procesarFSM() {
         case EMERGENCY:
             digitalWrite(PIN_LED_ROJO, HIGH);
             digitalWrite(PIN_LED_AZUL, LOW);
-            digitalWrite(PIN_LED_AMARILLO, LOW);
+            digitalWrite(PIN_LED_VERDE, LOW);
             digitalWrite(PIN_BUZZER, HIGH);
             if (!airePeligro && !ruidoPeligro) estadoActual = STABLE;
             else if (airePeligro && !ruidoPeligro) estadoActual = AIR_ALERT;
@@ -326,20 +347,43 @@ void procesarFSM() {
         case ERROR_SYS:
             digitalWrite(PIN_LED_ROJO, HIGH);
             digitalWrite(PIN_LED_AZUL, LOW);
-            digitalWrite(PIN_LED_AMARILLO, LOW);
+            digitalWrite(PIN_LED_VERDE, LOW);
             digitalWrite(PIN_BUZZER, LOW);
             display.clearDisplay();
             display.setCursor(0, 0);
             display.println("EMERGENCY BUTTON");
             display.display();
             break;
+
+        case REMOTE_STATE:
+
+            digitalWrite(PIN_LED_ROJO, LOW);
+            digitalWrite(PIN_LED_AZUL, HIGH);
+            digitalWrite(PIN_LED_VERDE, HIGH);
+            digitalWrite(PIN_BUZZER, LOW);
+
+            // Si Node-RED envia ON repetidamente, refrescamos el timer para no apagar
+            if (cmdRemoto == CMD_ON) t_actuacion = millis(); 
+
+            // Prioridad local estricta: si el entorno se vuelve peligroso, cortamos el remoto de raiz
+            if (airePeligro || ruidoPeligro) {
+                estadoActual = STABLE; 
+                digitalWrite(PIN_LED_AZUL, LOW);
+                digitalWrite(PIN_LED_VERDE, LOW);
+            }
+            // Timeout de seguridad de 60s o recepcion explicita de OFF
+            else if (cmdRemoto == CMD_OFF || millis() - t_actuacion > T_MAX_MS) {
+                estadoActual = STABLE;
+                digitalWrite(PIN_LED_AZUL, LOW);
+                digitalWrite(PIN_LED_VERDE, LOW);
+            }
+            break;
     }
+
+    cmdRemoto = CMD_NINGUNO;
 }
 
-// --- NUEVO ---
-// Si no logra conectar, lista las redes que el ESP32 alcanza a ver.
-// Si tu red no aparece aqui, no es problema del codigo: o es de 5 GHz
-// (el ESP32 solo ve 2,4 GHz), o esta demasiado lejos, o el nombre esta mal.
+// Sistema de deteccion de redes
 void escanearRedes() {
     Serial.println("[wifi] redes visibles:");
     int n = WiFi.scanNetworks();
@@ -359,12 +403,12 @@ void setup() {
     pinMode(PIN_KY038, INPUT);
     pinMode(PIN_LED_ROJO, OUTPUT);
     pinMode(PIN_LED_AZUL, OUTPUT);
-    pinMode(PIN_LED_AMARILLO, OUTPUT);
+    pinMode(PIN_LED_VERDE, OUTPUT);
     pinMode(PIN_BUZZER, OUTPUT);
     pinMode(PIN_BOTON, INPUT_PULLUP);
 
     if (!display.begin(0x3C, true)) {
-        Serial.println("Fallo al iniciar SH1106");
+        Serial.println("Fallo al iniciar la pantalla");
         estadoActual = ERROR_SYS;
     } else {
         display.setTextSize(1);

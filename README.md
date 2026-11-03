@@ -96,3 +96,17 @@ Ruta base del nodo: `curso/E02/P02/nodo1`
 > * **Constante propuesta para el firmware (GT3):**  
 >   ```cpp
 >   const int UMBRAL_RUIDO_PP = 18; // Reposo (2) + 5 * dispersión (3.2)
+
+## 5. Observabilidad y alerta en Grafana (GT6)
+>
+> ### Origen del Umbral
+> El límite de 2500 para ruido (y 400 para gas) viene del Charter y coincide con la FSM construida en la GT2.
+> 
+> ### Margen Frente al ruido
+> En la GT1 se midió un reposo con dispersión de $\sigma = 3.2$. El margen hasta el umbral de 2500 supera los 780 $\sigma$, descartando cualquier falsa alarma por inestabilidad eléctrica del sensor.  
+> 
+> ### Periodo de espera (for = 2 min)
+> Actúa como filtro temporal para ignorar ruidos fuertes y aislados (gritos, portazos). Solo alerta frente a contaminación acústica sostenida.
+> 
+> ### Caida del nodo
+> Si el ESP32 se apaga o pierde WiFi, dejará de enviar datos a InfluxDB; al pasar 5 minutos vacíos, Grafana pasará la regla automáticamente a estado NoData.
